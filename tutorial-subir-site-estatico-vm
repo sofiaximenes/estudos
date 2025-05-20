@@ -1,0 +1,171 @@
+
+
+ir até o diretório em qua a chave da vm está salva e rodar o comando ssh -i <caminho-da-chave> <nome-do-usuário>@<IP-público>
+
+
+
+# Tutorial para subir um site estático e criar uma máquina virtual
+
+
+## Passo 1 - Instalando o Nginx
+
+deve-se instalar e atualizar o pacote do apt:
+
+```sh
+sudo apt update
+sudo apt install nginx
+```
+
+
+## Passo 2 - Verificando o servidor web
+
+No final do processo de instalação, o Ubuntu 20.04 inicia o Nginx. O servidor Web já deve estar em funcionamento.
+
+Podemos verificar com o sistema init systemd para garantir que o serviço esteja funcionando digitando:
+
+```sh
+systemctl status nginx
+```
+
+![alt text](image-5.png)
+
+
+Caso você não esteja na máquina virtual, use o seguinte comando:
+
+```sh
+curl -4 icanhazip.com
+```
+
+# Passo 3 - Gerenciando o processo do Nginx
+
+## Para parar seu servidor Web, digite:
+
+```sh
+sudo systemctl stop nginx
+```
+## Para iniciar o servidor quando ele estiver parado, digite:
+
+```sh
+sudo systemctl start nginx
+```
+
+## Para parar e então iniciar o serviço novamente, digite:
+
+```sh
+sudo systemctl restart nginx
+```
+
+## Se você estiver simplesmente fazendo alterações de configuração, o Nginx geralmente pode recarregar sem quedas na conexão. Para fazer isso, digite:
+
+```sh
+sudo systemctl reload nginx
+```
+## Por padrão, o Nginx está configurado para iniciar automaticamente quando o servidor for iniciado. Se isso não é o que você quer, é possível desativar este comportamento digitando:
+```sh
+sudo systemctl disable nginx
+```
+
+## Para reativar o serviço para iniciar no boot, digite:
+```sh
+sudo systemctl enable nginx
+```
+
+# Passo 4 - Configurando blocos do servidor
+
+Ao usar o servidor Web Nginx, os server blocks (similares aos hosts virtuais no Apache) podem ser usados para encapsular detalhes de configuração e hospedar mais de um domínio de um único servidor. Vamos configurar um domínio chamado your_domain, mas você deve substituí-lo por seu próprio nome de domínio.
+
+```sh
+sudo mkdir -p /var/www/your_domain/html
+```
+
+## Em seguida, atribua a posse do diretório com a variável de ambiente $USER:
+
+```sh
+sudo chown -R $USER:$USER /var/www/your_domain/html
+```
+
+## As permissões dos seus web roots devem estar corretas se você não tiver modificado seu valor de umask, que define permissões padrão de arquivos. Para garantir que suas permissões estejam corretas e permitam que o proprietário leia, escreva e execute os arquivos, enquanto concede apenas permissões de leitura e execução para grupos e outros, você pode digitar o seguinte comando:
+
+```sh
+sudo chmod -R 755 /var/www/your_domain
+```
+
+## Então, crie uma página de amostra index.html utilizando o nano ou seu editor favorito:
+```sh
+nano /var/www/your_domain/html/index.html
+```
+
+## Dentro, adicione a seguinte amostra HTML:
+
+```sh
+<html>
+    <head>
+        <title>Welcome to your_domain!</title>
+    </head>
+    <body>
+        <h1>Success!  The your_domain server block is working!</h1>
+    </body>
+</html>
+```
+Salve e feche o arquivo digitando CTRL e X, depois Y e ENTER quando você terminar.
+
+## Para que o Nginx exiba este conteúdo, é necessário criar um bloco de servidor com as diretivas corretas. Em vez de modificar o arquivo de configuração padrão diretamente, vamos fazer um novo em /etc/nginx/sites-available/example.com:
+
+```sh
+sudo nano /etc/nginx/sites-available/your_domain
+```
+
+## Cole no seguinte bloco de configuração, que é similar ao padrão, mas atualizado para nosso novo diretório e nome de domínio:
+
+```sh
+server {
+        listen 80;
+        listen [::]:80;
+
+        root /var/www/your_domain/html;
+        index index.html index.htm index.nginx-debian.html;
+
+        server_name your_domain www.your_domain;
+
+        location / {
+                try_files $uri $uri/ =404;
+        }
+}
+```
+## Note que atualizamos a configuração do root para nosso novo diretório e o server_name para nosso nome de domínio. Em seguida, vamos habilitar o arquivo criando um link dele para o diretório sites-enabled, de onde o Nginx lê durante a inicialização:
+
+```sh
+sudo ln -s /etc/nginx/sites-available/your_domain /etc/nginx/sites-enabled/
+```
+
+Agora, dois blocos de servidor estão habilitados e configurados para responder às solicitações baseados em suas diretivas listen e server_name (você pode ler mais sobre como o Nginx processa essas diretivas aqui):
+
+    your_domain: irá responder às solicitações para your_domain e www.your_domain.
+
+    default: responderá a quaisquer pedidos na porta 80 que não correspondam aos outros dois blocos.
+
+
+## Para evitar um possível problema de memória de hash que possa surgir ao adicionar nomes adicionais de servidor, é necessário ajustar um valor único no arquivo /etc/nginx/nginx.conf. Abra o arquivo:
+
+```sh
+sudo nano /etc/nginx/nginx.conf
+```
+Encontre a diretiva server_names_hash_bucket_size e remova o símbolo # para descomentar a linha: Se você estiver usando o nano, você pode procurar rapidamente por palavras no arquivo pressionando CTRL e w.
+![alt text](image-6.png)
+
+Salve e feche o arquivo digitando CTRL e X, depois Y e ENTER quando você terminar.
+
+## Em seguida, teste para garantir que não haja erros de sintaxe em qualquer um dos seus arquivos do Nginx
+
+```sh
+sudo nginx -t
+```
+
+## Se não houver problemas, reinicie o Nginx para habilitar suas alterações:
+
+```sh
+sudo systemctl restart nginx
+```
+O Nginx agora deve estar exibindo seu nome de domínio. Você pode testar isso navegando para http://your_domain, onde você deve ver algo assim:
+
+Nginx first server block
